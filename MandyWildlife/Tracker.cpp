@@ -1,28 +1,20 @@
 #include "Tracker.h"
 #include "config.h"
 
-bool Tracker::begin()
-{
+bool Tracker::begin() {
     Serial.println("[TRACKER] Initialising tracker");
-
     return true;
 }
 
-bool Tracker::update(Animal& animal)
-{
-#if MOCK_TRACKING
-
-    return getMockAnimal(animal);
-
-#else
-
-    return getMovebankAnimal(animal);
-
-#endif
+bool Tracker::update(Animal& animal) {
+    if (MOCK_TRACKING) {
+        return getMockAnimal(animal);
+    } else {
+        return getMovebankAnimal(animal);
+    }
 }
 
-bool Tracker::getMockAnimal(Animal& animal)
-{
+bool Tracker::getMockAnimal(Animal& animal) {
     animal.name = "Luna";
     animal.species = "King Penguin";
 
@@ -39,14 +31,12 @@ bool Tracker::getMockAnimal(Animal& animal)
         millis();
 
     animal.location.valid = true;
-
     animal.distanceTravelledKm = 1284.7;
 
     return true;
 }
 
-bool Tracker::getMovebankAnimal(Animal& animal)
-{
+bool Tracker::getMovebankAnimal(Animal& animal) {
     // Movebank implementation will go here.
 
     return false;

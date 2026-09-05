@@ -3,13 +3,14 @@
 
 namespace
 {
-    const char* WIFI_SSID = "YOUR_WIFI";
-    const char* WIFI_PASSWORD = "YOUR_PASSWORD";
+    const char* WIFI_SSID = "DefinitelyNotThePolice";
+    const char* WIFI_PASSWORD = "IWon2Kids";
 }
 
 bool MandyWiFiManager::begin()
 {
     Serial.println("[WIFI] Starting Wi-Fi...");
+
 
     WiFi.mode(WIFI_STA);
 
