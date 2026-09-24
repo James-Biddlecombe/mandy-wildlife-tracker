@@ -1,11 +1,9 @@
 #include "WiFiManager.h"
 #include <WiFi.h>
 
-namespace
-{
-    const char* WIFI_SSID = "DefinitelyNotThePolice";
-    const char* WIFI_PASSWORD = "IWon2Kids";
-}
+// Wi-Fi credentials live in secrets.h, which is git-ignored.
+// Copy secrets.example.h to secrets.h and fill in your values.
+#include "secrets.h"
 
 bool MandyWiFiManager::begin()
 {

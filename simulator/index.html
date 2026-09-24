@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mandy Wildlife Tracker — Display Preview</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Mandy Wildlife Tracker</h1>
+    <p class="sub">
+      648 &times; 480 &bull; Waveshare 5.83&Prime; e-Paper (G) &bull; four-colour preview
+    </p>
+  </header>
+
+  <main class="stage">
+    <!--
+      The panel is exactly 648 x 480 physical pixels.
+      We render at 1:1 into this canvas, then CSS scales the whole
+      frame up so it is comfortable to look at. Turning on
+      "pixel-accurate" removes the scaling so you see true device size.
+    -->
+    <div class="bezel" id="bezel">
+      <canvas id="epd" width="648" height="480"></canvas>
+    </div>
+
+    <aside class="controls">
+      <h2>Preview controls</h2>
+
+      <label class="field">
+        <span>Animal preset</span>
+        <select id="preset">
+          <option value="luna">Luna — King Penguin (mock)</option>
+          <option value="ollie">Ollie — Snowy Owl</option>
+          <option value="sid">Sid — Sloth</option>
+          <option value="pip">Pip — Pangolin</option>
+          <option value="raja">Raja — Bengal Tiger</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Screen</span>
+        <select id="screen">
+          <option value="animal">Animal / map</option>
+          <option value="boot">Boot screen</option>
+          <option value="wifi">Wi-Fi connecting</option>
+          <option value="error">Error screen</option>
+        </select>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" id="grid" />
+        <span>Show colour-quantised grid</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" id="truesize" />
+        <span>Pixel-accurate (true device size)</span>
+      </label>
+
+      <label class="field">
+        <span>Zoom</span>
+        <input type="range" id="zoom" min="1" max="2" step="0.05" value="1.4" />
+      </label>
+
+      <div class="palette">
+        <h3>Panel palette</h3>
+        <ul>
+          <li><i class="sw black"></i> Black — text, coastlines, route</li>
+          <li><i class="sw white"></i> White — background</li>
+          <li><i class="sw yellow"></i> Yellow — ocean / ice / accents</li>
+          <li><i class="sw red"></i> Red — current position marker</li>
+        </ul>
+      </div>
+
+      <button id="download" type="button">Download PNG (648&times;480)</button>
+
+      <p class="note">
+        Everything is drawn using only the four colours the physical
+        panel supports. What you see here is what the e-paper will show.
+      </p>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
