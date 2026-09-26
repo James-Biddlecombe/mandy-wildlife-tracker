@@ -49,7 +49,7 @@
 #define EPD_CS_PIN   10
 #define EPD_RST_PIN  9
 #define EPD_DC_PIN   13
-#define EPD_BUSY_PIN 4
+#define EPD_BUSY_PIN 6
 
 /**
  * The 5.83" G HAT exposes a PWR (power-enable) pin. It is wired to

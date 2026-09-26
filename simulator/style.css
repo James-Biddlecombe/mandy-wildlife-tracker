@@ -78,6 +78,16 @@ html, body {
   color: #9fb1ad;
 }
 
+.tracking {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #c7d2cf;
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+}
+.tracking strong { color: #fff; }
+
 .field {
   display: block;
   margin-bottom: 14px;
@@ -171,4 +181,22 @@ button#download:hover { filter: brightness(1.08); }
   font-size: 12px;
   line-height: 1.5;
   color: #7f8e8b;
+}
+
+/* =============================================================
+   Capture mode (?capture=1): hide all UI chrome and show just the
+   panel, large and centered, for clean screenshots.
+   ============================================================= */
+body.capture .topbar,
+body.capture .controls {
+  display: none;
+}
+body.capture .stage {
+  padding: 0;
+  min-height: 100vh;
+  justify-content: center;
+  align-items: center;
+}
+body.capture .bezel {
+  padding: 22px;
 }

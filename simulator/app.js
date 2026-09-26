@@ -1,14 +1,14 @@
 /* =============================================================
  * Mandy Wildlife Tracker — display preview simulator
  *
- * Renders the exact 648 x 480 UI the Waveshare 5.83" (G) panel
- * will show, using ONLY the four colours the panel supports:
- *   black, white, yellow, red.
+ * A little desk companion that follows ONE special penguin — Luna,
+ * a King Penguin wandering the Southern Ocean — and shows her latest
+ * known location on a magical vintage field-guide chart.
  *
- * Designed as a vintage naturalist field-guide plate — made as
- * a gift, so the styling leans warm and hand-drawn rather than
- * technical. The drawing is organised into the same regions the
- * firmware DisplayManager uses (header / map / info / footer).
+ * Renders the exact 648 x 480 UI the Waveshare 5.83" (G) panel shows,
+ * using ONLY the four colours the panel supports: black, white,
+ * yellow, red. Everything is drawn in solid panel colours (no alpha),
+ * because e-paper can't show translucency or grey.
  * ============================================================= */
 
 "use strict";
@@ -17,8 +17,6 @@
 const W = 648;
 const H = 480;
 
-// The only four colours the physical panel can show.
-// Codes match the firmware buffer packing (2 bits per pixel).
 const PANEL = {
   black:  { css: "#000000", code: 0 },
   white:  { css: "#ffffff", code: 1 },
@@ -26,65 +24,18 @@ const PANEL = {
   red:    { css: "#d0121b", code: 3 },
 };
 
-// --- Animal presets ------------------------------------------
-// Mandy's favourites: penguins, owls, sloths, pangolins, tigers.
-// Coordinates are illustrative; the firmware will get real ones.
-const PRESETS = {
-  luna: {
-    name: "LUNA",
-    species: "King Penguin",
-    locationName: "Southern Ocean",
-    lat: -54.8123, lng: 158.4231,
-    distanceKm: 1284.7,
-    lastSignalMin: 34,
-    icon: "penguin",
-    biome: "ocean",
-    blurb: "wintering among the southern isles",
-  },
-  ollie: {
-    name: "OLLIE",
-    species: "Snowy Owl",
-    locationName: "Arctic Tundra",
-    lat: 69.3412, lng: 88.2010,
-    distanceKm: 642.3,
-    lastSignalMin: 12,
-    icon: "owl",
-    biome: "ice",
-    blurb: "drifting over the frozen north",
-  },
-  sid: {
-    name: "SID",
-    species: "Brown-throated Sloth",
-    locationName: "Amazon Basin",
-    lat: -3.4653, lng: -62.2159,
-    distanceKm: 3.8,
-    lastSignalMin: 128,
-    icon: "sloth",
-    biome: "forest",
-    blurb: "in no particular hurry at all",
-  },
-  pip: {
-    name: "PIP",
-    species: "Ground Pangolin",
-    locationName: "Kalahari",
-    lat: -22.9576, lng: 21.8569,
-    distanceKm: 57.1,
-    lastSignalMin: 76,
-    icon: "pangolin",
-    biome: "desert",
-    blurb: "snuffling across the red sands",
-  },
-  raja: {
-    name: "RAJA",
-    species: "Bengal Tiger",
-    locationName: "Sundarbans",
-    lat: 21.9497, lng: 89.1833,
-    distanceKm: 214.6,
-    lastSignalMin: 47,
-    icon: "tiger",
-    biome: "forest",
-    blurb: "prowling the mangrove maze",
-  },
+// --- The one tracked animal ----------------------------------
+// Luna the King Penguin. Coordinates are illustrative for the preview;
+// the firmware will fill these from real tracking data later.
+const LUNA = {
+  name: "LUNA",
+  species: "King Penguin",
+  locationName: "Southern Ocean",
+  lat: -54.8123,
+  lng: 158.4231,
+  distanceKm: 1284.7,
+  lastSignalMin: 34,
+  blurb: "wintering among the southern isles",
 };
 
 // --- Layout regions (device pixels) --------------------------
@@ -100,8 +51,8 @@ const canvas = document.getElementById("epd");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-// A deterministic little PRNG so the "hand drawn" coastlines and
-// route are stable between renders (not jittering every frame).
+// Stable pseudo-random generator so the scene (stars, waves, coast)
+// is the same every render rather than jittering.
 function makeRng(seed) {
   let s = seed >>> 0;
   return function () {
@@ -117,24 +68,19 @@ function makeRng(seed) {
 function drawDecorFrame() {
   const b = LAYOUT.border;
 
-  // Heavy outer rule.
   ctx.strokeStyle = PANEL.black.css;
   ctx.lineWidth = 3;
   ctx.strokeRect(b + 1.5, b + 1.5, W - 2 * b - 3, H - 2 * b - 3);
 
-  // Fine inner rule, offset for the classic "engraved plate" look.
   ctx.lineWidth = 1;
   ctx.strokeRect(b + 6.5, b + 6.5, W - 2 * b - 13, H - 2 * b - 13);
 
-  // Corner flourishes — little diamond + dot in each corner.
   const corners = [
     [b + 6, b + 6], [W - b - 6, b + 6],
     [b + 6, H - b - 6], [W - b - 6, H - b - 6],
   ];
   ctx.fillStyle = PANEL.red.css;
-  for (const [cx, cy] of corners) {
-    diamond(cx, cy, 5);
-  }
+  for (const [cx, cy] of corners) diamond(cx, cy, 5);
 }
 
 function diamond(cx, cy, r) {
@@ -156,28 +102,24 @@ function contentBox() {
 // Header
 // =============================================================
 
-function drawHeader(animal, box) {
+function drawHeader(box) {
   const x = box.x;
   const y = box.y;
 
-  // Title.
   ctx.fillStyle = PANEL.black.css;
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
   ctx.font = "700 27px Georgia, 'Times New Roman', serif";
-  ctx.fillText("Mandy's Wildlife", x, y + 26);
+  ctx.fillText("Mandy's Penguin", x, y + 26);
 
-  // Small heart after the title, in red.
-  const tw = ctx.measureText("Mandy's Wildlife").width;
+  const tw = ctx.measureText("Mandy's Penguin").width;
   drawHeart(x + tw + 14, y + 16, 7);
 
-  // Italic subtitle, given its own line with breathing room.
   ctx.font = "italic 13px Georgia, serif";
-  ctx.fillStyle = PANEL.black.css;
-  ctx.fillText("a field guide to a wandering friend", x + 1, y + 45);
+  ctx.fillText("following one small wanderer of the Southern Ocean", x + 1, y + 45);
 
-  // Species badge on the right, red with white text.
-  const label = animal.species.toUpperCase();
+  // Species badge, red with white text.
+  const label = LUNA.species.toUpperCase();
   ctx.font = "700 15px Georgia, serif";
   const lw = ctx.measureText(label).width;
   const bw = lw + 22;
@@ -187,7 +129,6 @@ function drawHeader(animal, box) {
   ctx.fillStyle = PANEL.white.css;
   ctx.fillText(label, bx + 11, y + 21);
 
-  // Double rule under the header.
   const ry = y + LAYOUT.headerH - 6;
   ctx.fillStyle = PANEL.black.css;
   ctx.fillRect(x, ry, box.w, 2);
@@ -205,7 +146,7 @@ function drawHeart(cx, cy, s) {
 }
 
 // =============================================================
-// Map
+// The magical polar chart
 // =============================================================
 
 function mapRect(box) {
@@ -220,140 +161,114 @@ function drawMapFrame(r) {
   ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
 }
 
-function drawMapInterior(r, animal) {
-  const rng = makeRng(hashString(animal.name + animal.biome));
+function drawScene(r) {
+  const rng = makeRng(0xC0FFEE);
 
   ctx.save();
   ctx.beginPath();
   ctx.rect(r.x + 2, r.y + 2, r.w - 4, r.h - 4);
   ctx.clip();
-
   const inner = { x: r.x + 2, y: r.y + 2, w: r.w - 4, h: r.h - 4 };
 
-  // Base wash: yellow for water/ice biomes, white for land biomes
-  // (so land maps read light with a yellow sea border feel).
-  const waterBiome = animal.biome === "ocean" || animal.biome === "ice";
-  ctx.fillStyle = waterBiome ? PANEL.yellow.css : PANEL.white.css;
+  // Sea: yellow wash for the Southern Ocean.
+  ctx.fillStyle = PANEL.yellow.css;
   ctx.fillRect(inner.x, inner.y, inner.w, inner.h);
 
-  // Faint graticule (lat/long grid) so it reads like a real chart.
+  // A faint nautical graticule.
   drawGraticule(inner);
 
-  // Geography.
-  if (waterBiome) {
-    drawIslands(inner, rng, animal.biome);
-    drawOceanTexture(inner, rng, animal.biome);
-  } else {
-    drawContinent(inner, rng);
-    drawLandTexture(inner, rng, animal.biome);
-  }
+  // A scatter of little stars/sparkles for a magical night-sea feel.
+  drawStars(inner, rng);
 
-  // Region label — engraved italic, lower-left.
+  // Gentle wave crests across the open water.
+  drawWaves(inner, rng);
+
+  // White ice shelf along the bottom, plus a couple of drifting islands.
+  drawIce(inner, rng);
+
+  // Region label, engraved italic, upper-left of the sea.
   ctx.fillStyle = PANEL.black.css;
   ctx.font = "italic 700 15px Georgia, serif";
   ctx.textAlign = "left";
-  ctx.fillText(animal.locationName, inner.x + 12, inner.y + inner.h - 14);
+  ctx.fillText("SOUTHERN OCEAN", inner.x + 14, inner.y + 24);
 
-  // Route history + current position.
+  // Luna's journey and where she is now.
   const route = buildRoute(r, rng);
+  const here = route[route.length - 1];
   drawRoute(route);
-  drawAnimalIcon(route[route.length - 1], animal.icon);
-  drawMarker(route[route.length - 1]);
+
+  // The hero: a lovely King Penguin standing by her marker.
+  drawPenguin(here.x - 4, here.y - 6);
+  drawMarker(here.x + 20, here.y + 6);
 
   ctx.restore();
 
-  // Overlays that sit above the clip (kept inside the frame).
-  drawCompass(r.x + r.w - 38, r.y + 42);
+  // Overlays kept inside the frame.
+  drawCompass(r.x + r.w - 40, r.y + 42);
   drawScaleBar(r.x + r.w - 132, r.y + r.h - 20);
 }
 
 function drawGraticule(inner) {
-  // Fine dashed black grid, solid colour (no alpha) so it quantises
-  // cleanly to black. Kept thin and widely spaced so it whispers.
   ctx.strokeStyle = PANEL.black.css;
   ctx.lineWidth = 1;
-  ctx.setLineDash([1, 7]);
+  ctx.setLineDash([1, 8]);
   const stepX = inner.w / 6;
   const stepY = inner.h / 4;
   ctx.beginPath();
   for (let i = 1; i < 6; i++) {
     const x = Math.round(inner.x + stepX * i) + 0.5;
-    ctx.moveTo(x, inner.y);
-    ctx.lineTo(x, inner.y + inner.h);
+    ctx.moveTo(x, inner.y); ctx.lineTo(x, inner.y + inner.h);
   }
   for (let i = 1; i < 4; i++) {
     const y = Math.round(inner.y + stepY * i) + 0.5;
-    ctx.moveTo(inner.x, y);
-    ctx.lineTo(inner.x + inner.w, y);
+    ctx.moveTo(inner.x, y); ctx.lineTo(inner.x + inner.w, y);
   }
   ctx.stroke();
   ctx.setLineDash([]);
 }
 
-function drawContinent(inner, rng) {
-  // A large landmass; on land biomes the sea is a yellow rim.
-  const cx = inner.x + inner.w * (0.48 + (rng() - 0.5) * 0.1);
-  const cy = inner.y + inner.h * 0.54;
-  // Yellow sea backdrop already implied by rim; draw a yellow halo
-  // then white land with a dark coast so land feels raised.
-  ctx.fillStyle = PANEL.yellow.css;
-  blob(cx, cy, inner.w * 0.42, inner.h * 0.42, rng, false);
-  ctx.fillStyle = PANEL.white.css;
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 2;
-  blob(cx, cy, inner.w * 0.36, inner.h * 0.34, makeRng(1234), true);
-}
-
-function drawIslands(inner, rng, biome) {
-  ctx.fillStyle = PANEL.white.css;
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 2;
-  const count = biome === "ice" ? 4 : 3;
-  for (let k = 0; k < count; k++) {
-    const ix = inner.x + 44 + rng() * (inner.w - 130);
-    const iy = inner.y + 40 + rng() * (inner.h - 110);
-    const rx = 22 + rng() * 34;
-    const ry = 15 + rng() * 22;
-    // White island with a solid black coastline (no soft shadow —
-    // e-paper can't show grey, and alpha-black over yellow would
-    // quantise to red noise).
-    ctx.fillStyle = PANEL.white.css;
-    ctx.strokeStyle = PANEL.black.css;
-    ctx.lineWidth = 2;
-    blob(ix, iy, rx, ry, makeRng(k * 7 + 3), true);
+// A few larger four-point sparkles over the sea — the "magic".
+// Fewer and bigger reads as intentional stars rather than noise.
+function drawStars(inner, rng) {
+  const n = 12;
+  for (let i = 0; i < n; i++) {
+    const x = inner.x + 30 + rng() * (inner.w - 60);
+    const y = inner.y + 40 + rng() * (inner.h * 0.5);
+    const s = rng() < 0.4 ? 6.5 : 4.5;
+    sparkle(x, y, s);
   }
 }
 
-// A closed wobbly blob — used for land / islands.
-function blob(cx, cy, rx, ry, rng, stroke) {
-  const pts = 16;
+function sparkle(cx, cy, s) {
+  // A white four-point star with a crisp black outline so it reads
+  // clearly on the yellow sea. Slim points give it a twinkle.
+  ctx.fillStyle = PANEL.white.css;
+  ctx.strokeStyle = PANEL.black.css;
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let i = 0; i <= pts; i++) {
-    const a = (i / pts) * Math.PI * 2;
-    const wob = 0.84 + rng() * 0.28;
-    const x = cx + Math.cos(a) * rx * wob;
-    const y = cy + Math.sin(a) * ry * wob;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
+  ctx.moveTo(cx, cy - s);
+  ctx.lineTo(cx + s * 0.22, cy - s * 0.22);
+  ctx.lineTo(cx + s, cy);
+  ctx.lineTo(cx + s * 0.22, cy + s * 0.22);
+  ctx.lineTo(cx, cy + s);
+  ctx.lineTo(cx - s * 0.22, cy + s * 0.22);
+  ctx.lineTo(cx - s, cy);
+  ctx.lineTo(cx - s * 0.22, cy - s * 0.22);
   ctx.closePath();
   ctx.fill();
-  if (stroke) ctx.stroke();
+  ctx.stroke();
 }
 
-function drawOceanTexture(inner, rng, biome) {
-  // Solid black wave crests only — NO alpha. On a 4-colour panel,
-  // semi-transparent black over yellow blends to a brown that
-  // quantises to RED, which looks like noise. Everything must be a
-  // solid panel colour. We keep the waves short and spaced so the
-  // sea reads gently rather than busily.
+function drawWaves(inner, rng) {
   ctx.strokeStyle = PANEL.black.css;
   ctx.lineWidth = 1;
   ctx.beginPath();
   let row = 0;
-  for (let y = inner.y + 24; y < inner.y + inner.h - 28; y += 26) {
-    const offset = (row % 2) * 22; // brick-offset the rows
-    for (let x = inner.x + 16 + offset; x < inner.x + inner.w - 44; x += 44) {
+  // Only over the open water (upper ~62%), leaving the ice clear below.
+  const yMax = inner.y + inner.h * 0.62;
+  for (let y = inner.y + 40; y < yMax; y += 30) {
+    const offset = (row % 2) * 26;
+    for (let x = inner.x + 22 + offset; x < inner.x + inner.w - 48; x += 52) {
       ctx.moveTo(x, y);
       ctx.quadraticCurveTo(x + 6, y - 3.5, x + 12, y);
       ctx.quadraticCurveTo(x + 18, y + 3.5, x + 24, y);
@@ -363,40 +278,91 @@ function drawOceanTexture(inner, rng, biome) {
   ctx.stroke();
 }
 
-function drawLandTexture(inner, rng, biome) {
-  // Solid black stipple (no alpha). Sparse so it suggests terrain
-  // without turning into a grey wash the panel can't show.
-  ctx.fillStyle = PANEL.black.css;
-  const n = biome === "desert" ? 90 : 70;
-  for (let i = 0; i < n; i++) {
-    const x = inner.x + 30 + rng() * (inner.w - 90);
-    const y = inner.y + 30 + rng() * (inner.h - 70);
-    ctx.fillRect(x, y, 1, 1);
+function drawIce(inner, rng) {
+  const iceTop = inner.y + inner.h * 0.66;
+
+  // Main ice shelf hugging the bottom, with a soft wavy top edge.
+  ctx.fillStyle = PANEL.white.css;
+  ctx.strokeStyle = PANEL.black.css;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(inner.x, inner.y + inner.h);
+  ctx.lineTo(inner.x, iceTop + 14);
+  let x = inner.x;
+  const step = 46;
+  let up = true;
+  while (x < inner.x + inner.w) {
+    const nx = Math.min(x + step, inner.x + inner.w);
+    const cy = iceTop + (up ? -6 : 12) + (makeRng(x)() - 0.5) * 6;
+    ctx.quadraticCurveTo((x + nx) / 2, cy, nx, iceTop + 10);
+    x = nx; up = !up;
+  }
+  ctx.lineTo(inner.x + inner.w, inner.y + inner.h);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // A couple of gentle contour lines on the ice for subtle texture,
+  // following the shelf rather than random ticks.
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = PANEL.black.css;
+  const bottom = inner.y + inner.h;
+  for (let c = 0; c < 2; c++) {
+    const yBase = iceTop + 24 + c * 20;
+    ctx.beginPath();
+    for (let sx = inner.x + 20; sx < inner.x + inner.w - 20; sx += 8) {
+      const yy = yBase + Math.sin((sx + c * 40) * 0.03) * 3;
+      if (sx === inner.x + 20) ctx.moveTo(sx, yy);
+      else ctx.lineTo(sx, yy);
+    }
+    ctx.stroke();
+  }
+
+  // Two little drifting ice floes out on the water.
+  for (let k = 0; k < 2; k++) {
+    const ix = inner.x + 60 + rng() * (inner.w - 180);
+    const iy = inner.y + 60 + rng() * (inner.h * 0.4);
+    floe(ix, iy, 24 + rng() * 20, 12 + rng() * 8, makeRng(k * 91 + 5));
   }
 }
 
+function floe(cx, cy, rx, ry, rng) {
+  ctx.fillStyle = PANEL.white.css;
+  ctx.strokeStyle = PANEL.black.css;
+  ctx.lineWidth = 2;
+  const pts = 12;
+  ctx.beginPath();
+  for (let i = 0; i <= pts; i++) {
+    const a = (i / pts) * Math.PI * 2;
+    const wob = 0.82 + rng() * 0.3;
+    const x = cx + Math.cos(a) * rx * wob;
+    const y = cy + Math.sin(a) * ry * wob;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
 function buildRoute(r, rng) {
-  // A meandering path across the map ending near centre-right,
-  // stopping short of the compass so nothing collides.
+  // A wandering path that ends on the ice shelf where Luna stands.
   const pts = [];
   const n = 7;
-  const startX = r.x + 44;
-  const endX = r.x + r.w - 104;
+  const startX = r.x + 40;
+  const endX = r.x + r.w * 0.44;
   const step = (endX - startX) / (n - 1);
   let x = startX;
-  let y = r.y + r.h * (0.46 + rng() * 0.16);
+  let y = r.y + r.h * 0.34;
   for (let i = 0; i < n; i++) {
     pts.push({ x, y });
     x += step;
-    y += (rng() - 0.5) * r.h * 0.22;
-    // Stay clear of the compass band (top-right) and the label row.
-    y = Math.max(r.y + 78, Math.min(r.y + r.h - 48, y));
+    y += (rng() - 0.5) * r.h * 0.14 + r.h * 0.03; // gently descends toward ice
+    y = Math.max(r.y + 40, Math.min(r.y + r.h * 0.6, y));
   }
   return pts;
 }
 
 function drawRoute(route) {
-  // Dashed black route line.
   ctx.strokeStyle = PANEL.black.css;
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 5]);
@@ -411,7 +377,6 @@ function drawRoute(route) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Hollow dots for past fixes.
   for (let i = 0; i < route.length - 1; i++) {
     ctx.fillStyle = PANEL.white.css;
     ctx.beginPath();
@@ -423,300 +388,159 @@ function drawRoute(route) {
   }
 }
 
-function drawMarker(p) {
-  // Current position: red teardrop pin. A small solid black base
-  // dot grounds it (no alpha shadows — the panel can't show grey).
+function drawMarker(x, y) {
+  // Red "you are here" teardrop pin.
   ctx.fillStyle = PANEL.black.css;
   ctx.beginPath();
-  ctx.ellipse(p.x, p.y + 2, 4, 1.6, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y + 2, 4, 1.6, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = PANEL.red.css;
   ctx.strokeStyle = PANEL.black.css;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.arc(p.x, p.y - 11, 8, Math.PI, Math.PI * 2);
-  ctx.lineTo(p.x, p.y + 1);
+  ctx.arc(x, y - 11, 8, Math.PI, Math.PI * 2);
+  ctx.lineTo(x, y + 1);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = PANEL.white.css;
   ctx.beginPath();
-  ctx.arc(p.x, p.y - 11, 3, 0, Math.PI * 2);
+  ctx.arc(x, y - 11, 3, 0, Math.PI * 2);
   ctx.fill();
 }
 
 // =============================================================
-// Animal illustrations — charming black-line glyphs with accents
+// The hero — a lovely King Penguin, drawn large on the ice.
+// Anchor (px,py) is roughly the penguin's feet.
 // =============================================================
 
-function drawAnimalIcon(p, kind) {
-  // The animal sits in a generous white medallion floating just
-  // above and left of the current-position pin, joined by a little
-  // leader line so it clearly belongs to the marker.
-  const R = 27;
-  const cx = p.x - 42;
-  const cy = p.y - 48;
-
+function drawPenguin(px, py) {
+  // A cute, cartoony King Penguin built from simple rounded shapes:
+  // a round head on a chubby egg body, a big white face mask and belly,
+  // stubby flippers, a little beak and rounded feet. Anchor (px,py) is
+  // at the feet. Everything is solid panel colours (no alpha).
   ctx.save();
-
-  // Leader line from medallion toward the pin.
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([3, 3]);
-  ctx.beginPath();
-  ctx.moveTo(cx + R * 0.7, cy + R * 0.7);
-  ctx.lineTo(p.x - 6, p.y - 14);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Medallion: white fill with a double ring (no alpha shadow —
-  // e-paper is solid-colour only).
-  ctx.fillStyle = PANEL.white.css;
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(cx, cy, R - 3, 0, Math.PI * 2); ctx.stroke();
-
-  // Clip the illustration to the medallion so nothing spills out.
-  ctx.save();
-  ctx.beginPath(); ctx.arc(cx, cy, R - 4, 0, Math.PI * 2); ctx.clip();
-
-  // Draw the glyph centred in a ~40px design box.
-  ctx.translate(cx, cy + 2);
-  const scale = 1.6;
-  ctx.scale(scale, scale);
+  ctx.translate(px, py);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  switch (kind) {
-    case "penguin": glyphPenguin(); break;
-    case "owl":     glyphOwl(); break;
-    case "sloth":   glyphSloth(); break;
-    case "pangolin":glyphPangolin(); break;
-    case "tiger":   glyphTiger(); break;
-    default:        glyphPenguin();
-  }
-  ctx.restore();
-  ctx.restore();
-}
+  ctx.strokeStyle = PANEL.black.css;
 
-// All glyphs are drawn centred on the origin (0,0) in an
-// approximately 26 x 26 design box, then scaled/placed by the caller.
+  const bodyCx = 0;
+  const bodyCy = -26;      // centre of the chubby body
+  const bodyRx = 24;
+  const bodyRy = 30;
+  const headCy = -62;      // centre of the head
+  const headR = 19;
 
-function glyphPenguin() {
+  // --- Feet (yellow, tucked under the body) ---
+  ctx.fillStyle = PANEL.yellow.css;
   ctx.lineWidth = 1.4;
-  // body (black)
-  ctx.fillStyle = PANEL.black.css;
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.beginPath();
-  ctx.ellipse(0, 1, 7, 11, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // white belly
-  ctx.fillStyle = PANEL.white.css;
-  ctx.beginPath();
-  ctx.ellipse(0, 3, 4, 8, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // white face patch
-  ctx.beginPath();
-  ctx.arc(0, -6, 4.2, 0, Math.PI * 2);
-  ctx.fill();
-  // black head crown over the patch
-  ctx.fillStyle = PANEL.black.css;
-  ctx.beginPath();
-  ctx.arc(0, -7.5, 4.2, Math.PI, Math.PI * 2);
-  ctx.fill();
-  // eyes
-  ctx.fillStyle = PANEL.black.css;
-  ctx.beginPath();
-  ctx.arc(-1.7, -6, 0.9, 0, Math.PI * 2);
-  ctx.arc(1.7, -6, 0.9, 0, Math.PI * 2);
-  ctx.fill();
-  // yellow beak + ear flashes
-  ctx.fillStyle = PANEL.yellow.css;
-  ctx.beginPath();
-  ctx.moveTo(0, -4); ctx.lineTo(3.5, -3); ctx.lineTo(0, -2);
-  ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.arc(-4, -6, 1.4, 0, Math.PI * 2);
-  ctx.arc(4, -6, 1.4, 0, Math.PI * 2); ctx.fill();
-  // wings
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(-6.5, -1); ctx.quadraticCurveTo(-9, 4, -6, 8);
-  ctx.moveTo(6.5, -1); ctx.quadraticCurveTo(9, 4, 6, 8);
-  ctx.stroke();
-  // feet
-  ctx.fillStyle = PANEL.yellow.css;
-  ctx.beginPath();
-  ctx.moveTo(-3, 11); ctx.lineTo(-6, 13); ctx.lineTo(-1, 12.5); ctx.closePath();
-  ctx.moveTo(3, 11); ctx.lineTo(6, 13); ctx.lineTo(1, 12.5); ctx.closePath();
-  ctx.fill();
-}
+  foot(-9, 2);
+  foot(9, 2);
 
-function glyphOwl() {
-  ctx.fillStyle = PANEL.white.css;
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 1.6;
-  // ear tufts
-  ctx.beginPath();
-  ctx.moveTo(-6, -9); ctx.lineTo(-3, -4);
-  ctx.moveTo(6, -9); ctx.lineTo(3, -4); ctx.stroke();
-  // body
-  ctx.beginPath();
-  ctx.ellipse(0, 1, 8, 10, 0, 0, Math.PI * 2);
-  ctx.fill(); ctx.stroke();
-  // facial disc
-  ctx.beginPath();
-  ctx.arc(-3.5, -2, 4, 0, Math.PI * 2);
-  ctx.arc(3.5, -2, 4, 0, Math.PI * 2); ctx.stroke();
-  // big eyes
+  // --- Flippers (behind the body so they read as arms) ---
   ctx.fillStyle = PANEL.black.css;
-  ctx.beginPath();
-  ctx.arc(-3.5, -2, 2.4, 0, Math.PI * 2);
-  ctx.arc(3.5, -2, 2.4, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = PANEL.white.css;
-  ctx.beginPath();
-  ctx.arc(-2.8, -2.8, 0.8, 0, Math.PI * 2);
-  ctx.arc(4.2, -2.8, 0.8, 0, Math.PI * 2); ctx.fill();
-  // yellow beak
-  ctx.fillStyle = PANEL.yellow.css;
-  ctx.beginPath();
-  ctx.moveTo(0, 0); ctx.lineTo(-1.6, 2.6); ctx.lineTo(1.6, 2.6);
-  ctx.closePath(); ctx.fill();
-  // belly speckles + feet
-  ctx.fillStyle = PANEL.black.css;
-  for (let i = 0; i < 3; i++) {
-    ctx.beginPath();
-    ctx.arc(-3 + i * 3, 6, 0.8, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.fillStyle = PANEL.yellow.css;
-  ctx.fillRect(-3, 10, 1.5, 2.5);
-  ctx.fillRect(1.5, 10, 1.5, 2.5);
-}
+  flipper(-bodyRx + 3, bodyCy - 4, -1);
+  flipper(bodyRx - 3, bodyCy - 4, 1);
 
-function glyphSloth() {
-  ctx.fillStyle = PANEL.white.css;
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 1.6;
-  // round face
-  ctx.beginPath();
-  ctx.arc(0, 0, 9, 0, Math.PI * 2);
-  ctx.fill(); ctx.stroke();
-  // dark eye patches (teardrop)
+  // --- Body (black egg) ---
   ctx.fillStyle = PANEL.black.css;
   ctx.beginPath();
-  ctx.ellipse(-3.5, -1, 2.4, 3.4, 0.4, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(3.5, -1, 2.4, 3.4, -0.4, 0, Math.PI * 2); ctx.fill();
-  // eyes (white dots in the patches)
-  ctx.fillStyle = PANEL.white.css;
-  ctx.beginPath();
-  ctx.arc(-3.5, -1, 1, 0, Math.PI * 2);
-  ctx.arc(3.5, -1, 1, 0, Math.PI * 2); ctx.fill();
-  // eye shine
-  ctx.fillStyle = PANEL.black.css;
-  ctx.beginPath();
-  ctx.arc(-3.5, -1, 0.5, 0, Math.PI * 2);
-  ctx.arc(3.5, -1, 0.5, 0, Math.PI * 2); ctx.fill();
-  // red nose
-  ctx.fillStyle = PANEL.red.css;
-  ctx.beginPath();
-  ctx.moveTo(0, 2); ctx.lineTo(-1.6, 3.4); ctx.lineTo(1.6, 3.4);
-  ctx.closePath(); ctx.fill();
-  // gentle smile
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 1.3;
-  ctx.beginPath();
-  ctx.arc(0, 4, 2.6, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
-}
+  ctx.ellipse(bodyCx, bodyCy, bodyRx, bodyRy, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-function glyphPangolin() {
-  ctx.fillStyle = PANEL.white.css;
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 1.6;
-  // curled body outline
-  ctx.beginPath();
-  ctx.arc(1, 1, 9, 0, Math.PI * 2);
-  ctx.fill(); ctx.stroke();
-  // little head poking out (lower left)
+  // --- White belly (big soft oval on the front) ---
   ctx.fillStyle = PANEL.white.css;
   ctx.beginPath();
-  ctx.ellipse(-7, 6, 4, 2.6, -0.5, 0, Math.PI * 2);
-  ctx.fill(); ctx.stroke();
-  ctx.fillStyle = PANEL.black.css;
-  ctx.beginPath(); ctx.arc(-8, 5, 0.9, 0, Math.PI * 2); ctx.fill();
-  // overlapping scales in a spiral
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 1.2;
-  for (let ring = 1; ring <= 3; ring++) {
-    const rr = ring * 2.6;
-    const stepN = 6 + ring * 2;
-    for (let s = 0; s < stepN; s++) {
-      const a = (s / stepN) * Math.PI * 2;
-      const x = 1 + Math.cos(a) * rr;
-      const y = 1 + Math.sin(a) * rr;
-      ctx.beginPath();
-      ctx.arc(x, y, 2, a + 0.4, a + Math.PI - 0.4);
-      ctx.stroke();
-    }
-  }
-}
+  ctx.ellipse(bodyCx, bodyCy + 2, bodyRx - 8, bodyRy - 7, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-function glyphTiger() {
-  ctx.fillStyle = PANEL.yellow.css;
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 1.6;
-  // ears
+  // --- Head (black circle) ---
+  ctx.fillStyle = PANEL.black.css;
   ctx.beginPath();
-  ctx.arc(-6, -6, 2.6, 0, Math.PI * 2);
-  ctx.arc(6, -6, 2.6, 0, Math.PI * 2);
-  ctx.fill(); ctx.stroke();
-  ctx.fillStyle = PANEL.red.css;
+  ctx.arc(0, headCy, headR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // --- White face mask (so the eyes sit on white — the cute bit) ---
+  ctx.fillStyle = PANEL.white.css;
   ctx.beginPath();
-  ctx.arc(-6, -6, 1.1, 0, Math.PI * 2);
-  ctx.arc(6, -6, 1.1, 0, Math.PI * 2); ctx.fill();
-  // head
+  ctx.ellipse(0, headCy + 2, headR - 5, headR - 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // --- King Penguin ear-patches: yellow arcs hugging the head sides ---
   ctx.fillStyle = PANEL.yellow.css;
   ctx.beginPath();
-  ctx.arc(0, 0, 9, 0, Math.PI * 2);
-  ctx.fill(); ctx.stroke();
-  // stripes
-  ctx.strokeStyle = PANEL.black.css;
-  ctx.lineWidth = 1.6;
+  ctx.moveTo(-headR + 2, headCy - 2);
+  ctx.quadraticCurveTo(-headR - 2, headCy + 6, -headR + 6, headCy + 10);
+  ctx.quadraticCurveTo(-headR + 3, headCy + 2, -headR + 2, headCy - 2);
+  ctx.closePath();
+  ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(0, -9); ctx.lineTo(0, -5);
-  ctx.moveTo(-4, -8); ctx.lineTo(-3, -4.5);
-  ctx.moveTo(4, -8); ctx.lineTo(3, -4.5);
-  ctx.moveTo(-9, -1); ctx.lineTo(-5, 0);
-  ctx.moveTo(9, -1); ctx.lineTo(5, 0);
-  ctx.moveTo(-8, 4); ctx.lineTo(-4.5, 3.5);
-  ctx.moveTo(8, 4); ctx.lineTo(4.5, 3.5);
-  ctx.stroke();
-  // eyes
+  ctx.moveTo(headR - 2, headCy - 2);
+  ctx.quadraticCurveTo(headR + 2, headCy + 6, headR - 6, headCy + 10);
+  ctx.quadraticCurveTo(headR - 3, headCy + 2, headR - 2, headCy - 2);
+  ctx.closePath();
+  ctx.fill();
+
+  // --- Eyes (big and friendly, with a white highlight) ---
   ctx.fillStyle = PANEL.black.css;
   ctx.beginPath();
-  ctx.arc(-3.2, -1, 1.4, 0, Math.PI * 2);
-  ctx.arc(3.2, -1, 1.4, 0, Math.PI * 2); ctx.fill();
+  ctx.arc(-6, headCy + 1, 3.2, 0, Math.PI * 2);
+  ctx.arc(6, headCy + 1, 3.2, 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = PANEL.white.css;
   ctx.beginPath();
-  ctx.arc(-2.7, -1.5, 0.5, 0, Math.PI * 2);
-  ctx.arc(3.7, -1.5, 0.5, 0, Math.PI * 2); ctx.fill();
-  // muzzle + red nose + mouth
-  ctx.fillStyle = PANEL.white.css;
-  ctx.beginPath(); ctx.ellipse(0, 4, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = PANEL.red.css;
+  ctx.arc(-5, headCy - 0.4, 1.1, 0, Math.PI * 2);
+  ctx.arc(7, headCy - 0.4, 1.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  // --- Beak (little yellow triangle, with a red lower half) ---
+  ctx.fillStyle = PANEL.yellow.css;
   ctx.beginPath();
-  ctx.moveTo(0, 3.5); ctx.lineTo(-1.4, 5); ctx.lineTo(1.4, 5);
-  ctx.closePath(); ctx.fill();
+  ctx.moveTo(-4, headCy + 7);
+  ctx.lineTo(4, headCy + 7);
+  ctx.lineTo(0, headCy + 13);
+  ctx.closePath();
+  ctx.fill();
   ctx.strokeStyle = PANEL.black.css;
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, 5); ctx.lineTo(0, 6.5);
-  ctx.moveTo(0, 6.5); ctx.arc(0, 6, 1.4, 0.2 * Math.PI, 0.8 * Math.PI);
   ctx.stroke();
+  ctx.fillStyle = PANEL.red.css;
+  ctx.beginPath();
+  ctx.moveTo(-2.4, headCy + 10);
+  ctx.lineTo(2.4, headCy + 10);
+  ctx.lineTo(0, headCy + 13);
+  ctx.closePath();
+  ctx.fill();
+
+  // --- Rosy cheeks (small yellow dots) for a touch of charm ---
+  ctx.fillStyle = PANEL.yellow.css;
+  ctx.beginPath();
+  ctx.arc(-11, headCy + 5, 2, 0, Math.PI * 2);
+  ctx.arc(11, headCy + 5, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function foot(dx, dy) {
+  // A little rounded yellow foot.
+  ctx.beginPath();
+  ctx.ellipse(dx, dy, 7, 3.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
+function flipper(x, y, dir) {
+  // A stubby black flipper sweeping down and out from the shoulder.
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.quadraticCurveTo(x + dir * 12, y + 10, x + dir * 6, y + 30);
+  ctx.quadraticCurveTo(x + dir * 1, y + 22, x - dir * 1, y + 4);
+  ctx.closePath();
+  ctx.fill();
 }
 
 // =============================================================
@@ -725,37 +549,30 @@ function glyphTiger() {
 
 function drawCompass(cx, cy) {
   const R = 15;
-  // Ring.
   ctx.fillStyle = PANEL.white.css;
   ctx.beginPath(); ctx.arc(cx, cy, R + 3, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = PANEL.black.css;
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(cx, cy, R + 3, 0, Math.PI * 2); ctx.stroke();
 
-  // Minor (diagonal) points — thin.
   ctx.fillStyle = PANEL.black.css;
   for (let k = 0; k < 4; k++) {
     const a = Math.PI / 4 + k * (Math.PI / 2);
-    star4(cx, cy, a, R * 0.7, 2.5);
+    compassPoint(cx, cy, a, R * 0.7, 2.5);
   }
-  // Major points N/E/S/W.
   for (let k = 0; k < 4; k++) {
     const a = k * (Math.PI / 2);
-    // North is red.
-    ctx.fillStyle = (k === 3) ? PANEL.red.css : PANEL.black.css; // -y is north
-    star4(cx, cy, a, R, 3.5);
+    ctx.fillStyle = (k === 3) ? PANEL.red.css : PANEL.black.css; // north (-y) red
+    compassPoint(cx, cy, a, R, 3.5);
   }
-  // North label.
   ctx.fillStyle = PANEL.black.css;
   ctx.font = "700 9px Georgia, serif";
   ctx.textAlign = "center";
   ctx.fillText("N", cx, cy - R - 5);
-  // center hub
   ctx.beginPath(); ctx.arc(cx, cy, 1.6, 0, Math.PI * 2); ctx.fill();
 }
 
-// Draw one tapered compass point at angle a (0 = east, grows CW).
-function star4(cx, cy, a, len, half) {
+function compassPoint(cx, cy, a, len, half) {
   const tipX = cx + Math.cos(a) * len;
   const tipY = cy + Math.sin(a) * len;
   const bx = cx + Math.cos(a + Math.PI / 2) * half;
@@ -774,11 +591,8 @@ function drawScaleBar(x, y) {
   ctx.fillStyle = PANEL.white.css;
   ctx.fillRect(x - 3, y - 10, 108, 20);
   ctx.fillStyle = PANEL.black.css;
-  // alternating black/white segments
   const seg = 25;
-  for (let i = 0; i < 4; i++) {
-    if (i % 2 === 0) ctx.fillRect(x + i * seg, y, seg, 3);
-  }
+  for (let i = 0; i < 4; i++) if (i % 2 === 0) ctx.fillRect(x + i * seg, y, seg, 3);
   ctx.strokeStyle = PANEL.black.css;
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, 100, 3);
@@ -794,55 +608,179 @@ function drawScaleBar(x, y) {
 // Footer
 // =============================================================
 
-function drawFooter(animal, box) {
+function drawFooter(box) {
   const x = box.x;
   const y = box.y + box.h - LAYOUT.footerH + 6;
 
-  // Row 1: name (big) + species (italic right).
   ctx.fillStyle = PANEL.black.css;
   ctx.textAlign = "left";
   ctx.font = "700 25px Georgia, serif";
-  ctx.fillText(cap(animal.name), x, y + 20);
+  ctx.fillText(cap(LUNA.name), x, y + 20);
 
   ctx.font = "italic 15px Georgia, serif";
   ctx.textAlign = "right";
-  ctx.fillText(animal.species, box.x + box.w, y + 20);
+  ctx.fillText(LUNA.species, box.x + box.w, y + 20);
 
-  // Row 2: latest-known label + a little blurb, coords on the right.
   ctx.textAlign = "left";
   ctx.font = "13px Georgia, serif";
-  ctx.fillText("Latest known location \u2014 " + animal.blurb, x, y + 40);
+  ctx.fillText("Latest known location \u2014 " + LUNA.blurb, x, y + 40);
 
   ctx.textAlign = "right";
   ctx.font = "12px Georgia, serif";
-  ctx.fillText(formatCoords(animal.lat, animal.lng), box.x + box.w, y + 40);
+  ctx.fillText(formatCoords(LUNA.lat, LUNA.lng), box.x + box.w, y + 40);
 
-  // Row 3: place name in bold.
   ctx.textAlign = "left";
   ctx.font = "700 16px Georgia, serif";
-  ctx.fillText(animal.locationName, x, y + 60);
+  ctx.fillText(LUNA.locationName, x, y + 60);
 
-  // Divider.
   ctx.fillStyle = PANEL.black.css;
   ctx.fillRect(x, y + 68, box.w, 1);
 
-  // Row 4: last signal (red if stale) + distance travelled.
   ctx.font = "13px Georgia, serif";
   ctx.textAlign = "left";
-  const stale = animal.lastSignalMin > 60;
+  const stale = LUNA.lastSignalMin > 60;
   ctx.fillStyle = stale ? PANEL.red.css : PANEL.black.css;
-  ctx.fillText("Last signal: " + formatAge(animal.lastSignalMin), x, y + 85);
+  ctx.fillText("Last signal: " + formatAge(LUNA.lastSignalMin), x, y + 85);
 
+  // Centre signature.
   ctx.fillStyle = PANEL.black.css;
   ctx.textAlign = "center";
-  drawHeart(box.x + box.w / 2 - 44, y + 80, 5);
+  drawHeart(box.x + box.w / 2 - 46, y + 80, 5);
   ctx.font = "italic 12px Georgia, serif";
-  ctx.fillText("Made for Mandy", box.x + box.w / 2 + 6, y + 85);
+  ctx.fillText("Made for Mandy", box.x + box.w / 2 + 4, y + 85);
 
   ctx.textAlign = "right";
   ctx.font = "13px Georgia, serif";
-  ctx.fillText(formatKm(animal.distanceKm) + " travelled", box.x + box.w, y + 85);
+  ctx.fillText(formatKm(LUNA.distanceKm) + " travelled", box.x + box.w, y + 85);
 }
+
+// --- Ashore / moulting variant -------------------------------
+// Luna is at the colony (not at sea): show her standing at home on the
+// ice, and a footer that explains the stillness with a day counter.
+
+const LUNA_MOULT = {
+  phaseLabel: "Moulting ashore",
+  phaseExplain: "Ashore for her yearly moult, fasting as new feathers grow.",
+  phaseDay: 6,
+  phaseTotalDays: 32,
+  distanceKm: 3120,   // total this year so far
+  journeyDay: 256,
+  journeyTotalDays: 365,
+};
+
+function drawColonyScene(r) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(r.x + 2, r.y + 2, r.w - 4, r.h - 4);
+  ctx.clip();
+  const inner = { x: r.x + 2, y: r.y + 2, w: r.w - 4, h: r.h - 4 };
+
+  // Yellow sea backdrop with a big white ice/colony shore filling most
+  // of the frame — she's home, so the colony is the focus, not the sea.
+  ctx.fillStyle = PANEL.yellow.css;
+  ctx.fillRect(inner.x, inner.y, inner.w, inner.h);
+  drawStars(inner, makeRng(0xC0FFEE));
+
+  // Ice/land shore across the lower two-thirds.
+  const shoreTop = inner.y + inner.h * 0.42;
+  ctx.fillStyle = PANEL.white.css;
+  ctx.strokeStyle = PANEL.black.css;
+  ctx.lineWidth = 2;
+  let px = inner.x, py = shoreTop, up = true;
+  ctx.beginPath();
+  ctx.moveTo(inner.x, inner.y + inner.h);
+  ctx.lineTo(inner.x, shoreTop);
+  for (let x = inner.x; x <= inner.x + inner.w; x += 44) {
+    const yy = shoreTop + (up ? -7 : 9);
+    ctx.lineTo(x, yy); up = !up;
+  }
+  ctx.lineTo(inner.x + inner.w, inner.y + inner.h);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Region label.
+  ctx.fillStyle = PANEL.black.css;
+  ctx.font = "italic 700 15px Georgia, serif";
+  ctx.textAlign = "left";
+  ctx.fillText("CROZET ISLANDS \u2014 THE COLONY", inner.x + 14, inner.y + 22);
+
+  // A few other little penguins to suggest the colony (small, behind).
+  drawMiniPenguin(inner.x + inner.w * 0.30, shoreTop + 40);
+  drawMiniPenguin(inner.x + inner.w * 0.68, shoreTop + 52);
+  drawMiniPenguin(inner.x + inner.w * 0.80, shoreTop + 34);
+
+  // Luna, front and centre on the shore.
+  const lunaX = inner.x + inner.w * 0.5;
+  const lunaY = shoreTop + 78;
+  drawPenguin(lunaX, lunaY);
+  drawMarker(lunaX + 26, lunaY - 30);
+
+  ctx.restore();
+
+  drawCompass(r.x + r.w - 40, r.y + 42);
+}
+
+function drawMiniPenguin(cx, cy) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(0.42, 0.42);
+  drawPenguin(0, 0);
+  ctx.restore();
+}
+
+function drawMoultFooter(box) {
+  const x = box.x;
+  const y = box.y + box.h - LAYOUT.footerH + 6;
+
+  ctx.fillStyle = PANEL.black.css;
+  ctx.textAlign = "left";
+  ctx.font = "700 25px Georgia, serif";
+  ctx.fillText(cap(LUNA.name), x, y + 20);
+
+  ctx.font = "italic 15px Georgia, serif";
+  ctx.textAlign = "right";
+  ctx.fillText(LUNA.species, box.x + box.w, y + 20);
+
+  // Phase label (left) + coordinates (right).
+  ctx.textAlign = "left";
+  ctx.font = "700 15px Georgia, serif";
+  ctx.fillText(LUNA_MOULT.phaseLabel, x, y + 40);
+
+  ctx.textAlign = "right";
+  ctx.font = "12px Georgia, serif";
+  ctx.fillText(formatCoords(JOURNEY_COLONY_LAT, JOURNEY_COLONY_LNG), box.x + box.w, y + 40);
+
+  // Explanation line (small) — tells you WHY she isn't moving.
+  ctx.textAlign = "left";
+  ctx.font = "13px Georgia, serif";
+  ctx.fillText(LUNA_MOULT.phaseExplain, x, y + 58);
+
+  ctx.fillStyle = PANEL.black.css;
+  ctx.fillRect(x, y + 68, box.w, 1);
+
+  // Day-of-phase counter (left) + km-this-year (right).
+  ctx.font = "700 14px Georgia, serif";
+  ctx.textAlign = "left";
+  ctx.fillText(
+    "Day " + LUNA_MOULT.phaseDay + " of " + LUNA_MOULT.phaseTotalDays + " ashore",
+    x, y + 85
+  );
+
+  ctx.fillStyle = PANEL.black.css;
+  ctx.textAlign = "center";
+  drawHeart(box.x + box.w / 2 - 46, y + 80, 5);
+  ctx.font = "italic 12px Georgia, serif";
+  ctx.fillText("Made for Mandy", box.x + box.w / 2 + 4, y + 85);
+
+  ctx.textAlign = "right";
+  ctx.font = "13px Georgia, serif";
+  ctx.fillText(formatKm(LUNA_MOULT.distanceKm) + " this year", box.x + box.w, y + 85);
+}
+
+// Colony coords for the moult preview (match PenguinJourney.h).
+const JOURNEY_COLONY_LAT = -46.43;
+const JOURNEY_COLONY_LNG = 51.86;
 
 // =============================================================
 // Alternate screens
@@ -852,17 +790,22 @@ function drawBootScreen() {
   fillBackground();
   drawDecorFrame();
   const cx = W / 2;
+
+  // A little penguin above the title for warmth.
+  ctx.save();
+  ctx.translate(cx, H / 2 - 46);
+  ctx.scale(0.9, 0.9);
+  drawPenguin(0, 34);
+  ctx.restore();
+
   ctx.fillStyle = PANEL.black.css;
   ctx.textAlign = "center";
-  ctx.font = "700 36px Georgia, serif";
-  ctx.fillText("Mandy's Wildlife", cx, H / 2 - 34);
-  drawHeart(cx, H / 2 - 8, 12);
-  ctx.fillStyle = PANEL.black.css;
-  ctx.font = "italic 18px Georgia, serif";
-  ctx.fillText("a little tracker, made with love", cx, H / 2 + 30);
+  ctx.font = "700 34px Georgia, serif";
+  ctx.fillText("Mandy's Penguin", cx, H / 2 + 58);
+  drawHeart(cx, H / 2 + 78, 10);
   ctx.fillStyle = PANEL.red.css;
   ctx.font = "700 15px Georgia, serif";
-  ctx.fillText("Made for Mandy", cx, H / 2 + 62);
+  ctx.fillText("Made for Mandy", cx, H / 2 + 104);
 }
 
 function drawWiFiScreen() {
@@ -872,7 +815,7 @@ function drawWiFiScreen() {
   ctx.fillStyle = PANEL.black.css;
   ctx.textAlign = "center";
   ctx.font = "700 26px Georgia, serif";
-  ctx.fillText("Finding a signal\u2026", cx, H / 2 - 20);
+  ctx.fillText("Finding Luna\u2026", cx, H / 2 - 20);
   for (let i = 1; i <= 3; i++) {
     ctx.strokeStyle = i === 3 ? PANEL.red.css : PANEL.black.css;
     ctx.lineWidth = 3;
@@ -896,12 +839,12 @@ function drawErrorScreen() {
   ctx.fillText("Signal lost", cx, H / 2 - 44);
   ctx.fillStyle = PANEL.black.css;
   ctx.font = "15px Georgia, serif";
-  ctx.fillText("Couldn't reach our wandering friend.", cx, H / 2);
-  ctx.fillText("Showing the last known location.", cx, H / 2 + 24);
+  ctx.fillText("Couldn't reach Luna just now.", cx, H / 2);
+  ctx.fillText("Showing her last known location.", cx, H / 2 + 24);
 }
 
 // =============================================================
-// Shared drawing helpers
+// Shared helpers
 // =============================================================
 
 function fillBackground() {
@@ -921,17 +864,7 @@ function fillRoundRect(x, y, w, h, r) {
 }
 
 function cap(name) {
-  // Presets store NAME in caps; show as Title case for warmth.
   return name.charAt(0) + name.slice(1).toLowerCase();
-}
-
-function hashString(str) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
 }
 
 function formatCoords(lat, lng) {
@@ -955,7 +888,7 @@ function formatAge(min) {
 }
 
 // =============================================================
-// Colour quantisation — force the canvas to the 4 panel colours
+// Quantisation to the 4 panel colours (luminance-aware, no alpha)
 // =============================================================
 
 const PALETTE_RGB = [
@@ -966,22 +899,11 @@ const PALETTE_RGB = [
 ];
 
 function nearestPaletteIndex(r, g, b) {
-  // Luminance-aware mapping. The naive nearest-RGB approach sends
-  // dark antialiased edges (black lines over yellow) to RED, which
-  // speckles every coastline. Instead: decide black vs. not-black by
-  // brightness first, and only pick red for genuinely red-ish pixels.
   const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-
-  // Clearly dark -> black.
-  if (lum < 110) return 0;
-
-  // Strong red signal (red dominant, not bright/yellow) -> red.
-  if (r > 150 && g < 120 && b < 120 && (r - g) > 60) return 3;
-
-  // Otherwise choose between white and yellow by brightness/hue.
-  // Yellow is bright with low blue; white is bright and neutral.
-  if (b < 150 && (r + g) / 2 - b > 60) return 2; // yellow
-  return 1; // white
+  if (lum < 110) return 0;                                   // dark -> black
+  if (r > 150 && g < 120 && b < 120 && (r - g) > 60) return 3; // red-ish -> red
+  if (b < 150 && (r + g) / 2 - b > 60) return 2;            // warm/bright -> yellow
+  return 1;                                                 // else white
 }
 
 function quantiseToPanel() {
@@ -1011,9 +933,7 @@ function drawGridOverlay() {
 // =============================================================
 
 function render() {
-  const presetKey = document.getElementById("preset").value;
   const screen = document.getElementById("screen").value;
-  const animal = PRESETS[presetKey];
 
   if (screen === "boot") {
     drawBootScreen();
@@ -1021,30 +941,46 @@ function render() {
     drawWiFiScreen();
   } else if (screen === "error") {
     drawErrorScreen();
+  } else if (screen === "moult") {
+    fillBackground();
+    drawDecorFrame();
+    const box = contentBox();
+    drawHeader(box);
+    const r = mapRect(box);
+    drawMapFrame(r);
+    drawColonyScene(r);
+    drawMoultFooter(box);
   } else {
     fillBackground();
     drawDecorFrame();
     const box = contentBox();
-    drawHeader(animal, box);
+    drawHeader(box);
     const r = mapRect(box);
     drawMapFrame(r);
-    drawMapInterior(r, animal);
-    drawFooter(animal, box);
+    drawScene(r);
+    drawFooter(box);
   }
 
-  // Force the image down to the four real panel colours.
   quantiseToPanel();
 
-  if (document.getElementById("grid").checked) {
-    drawGridOverlay();
-  }
+  if (document.getElementById("grid").checked) drawGridOverlay();
 }
 
 // =============================================================
 // UI wiring
 // =============================================================
 
+const CAPTURE = new URLSearchParams(location.search).get("capture") === "1";
+
 function applyScale() {
+  // In capture mode, force a big fixed zoom so the panel fills the
+  // screenshot crisply regardless of the slider.
+  if (CAPTURE) {
+    const scale = 1.7;
+    canvas.style.width = W * scale + "px";
+    canvas.style.height = H * scale + "px";
+    return;
+  }
   const truesize = document.getElementById("truesize").checked;
   const zoom = parseFloat(document.getElementById("zoom").value);
   const scale = truesize ? 1 : zoom;
@@ -1053,22 +989,21 @@ function applyScale() {
   document.getElementById("zoom").disabled = truesize;
 }
 
-// Allow ?animal=owl&screen=animal in the URL to preselect, which
-// makes it easy to preview a specific plate (and to screenshot one).
+// URL params:
+//   ?screen=animal|moult|boot|wifi|error   preselect a screen
+//   ?capture=1                             hide UI chrome for clean shots
 function applyUrlOverrides() {
-  const params = new URLSearchParams(location.search);
-  const a = params.get("animal");
-  const s = params.get("screen");
-  if (a && PRESETS[a]) document.getElementById("preset").value = a;
+  const s = new URLSearchParams(location.search).get("screen");
   if (s) {
     const sel = document.getElementById("screen");
     if ([...sel.options].some((o) => o.value === s)) sel.value = s;
   }
+  if (CAPTURE) document.body.classList.add("capture");
 }
 
 function wire() {
   applyUrlOverrides();
-  ["preset", "screen", "grid"].forEach((id) =>
+  ["screen", "grid"].forEach((id) =>
     document.getElementById(id).addEventListener("change", render)
   );
   document.getElementById("truesize").addEventListener("change", applyScale);
@@ -1076,8 +1011,7 @@ function wire() {
 
   document.getElementById("download").addEventListener("click", () => {
     const a = document.createElement("a");
-    const preset = document.getElementById("preset").value;
-    a.download = `mandy-${preset}-648x480.png`;
+    a.download = "mandy-penguin-648x480.png";
     a.href = canvas.toDataURL("image/png");
     a.click();
   });

@@ -25,7 +25,7 @@
 #define PIN_CS   10
 #define PIN_DC   13
 #define PIN_RST  9
-#define PIN_BUSY 4
+#define PIN_BUSY 6
 #define PIN_PWR  5
 
 void setup()
